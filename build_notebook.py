@@ -136,7 +136,8 @@ async def _chat(req: Request):
     messages = body.get("messages", [])
     params = dict(max_tokens=int(body.get("max_tokens", 1024)),
                   temperature=float(body.get("temperature", 0.7)),
-                  top_p=float(body.get("top_p", 0.95)))
+                  top_p=float(body.get("top_p", 0.95)),
+                  chat_template_kwargs={"enable_thinking": False})
     if body.get("stream"):
         def gen():
             for chunk in llm.create_chat_completion(messages=messages, stream=True, **params):
