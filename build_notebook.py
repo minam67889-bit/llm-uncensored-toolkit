@@ -49,7 +49,7 @@ PORT         = 8000
 # برای مدل دلخواه: در huggingface.co عبارت abliterated GGUF را جستجو کن."""))
 
 cells.append(code("""# ۳) نصب — wheel از پیش‌کامپایل‌شده با CUDA (سریع، ~۱ دقیقه، بدون کامپایل محلی)
-!pip -q install llama-cpp-python==0.3.4 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
+!pip -q install llama-cpp-python==0.3.34 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
 !pip -q install fastapi uvicorn huggingface_hub --upgrade
 import llama_cpp; print('✅ نصب شد، نسخه llama-cpp-python:', llama_cpp.__version__)"""))
 
