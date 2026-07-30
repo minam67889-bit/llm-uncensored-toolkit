@@ -206,6 +206,18 @@ async def _t_list(req: Request):
 @app.get("/v1/workspace")
 async def _ws_info(): return {"workspace": AGENT_WS}
 
+@app.post("/v1/upload")
+async def _upload(req: Request):
+    try:
+        b = await req.json()
+        fn = "".join(ch for ch in _o.path.basename(b.get("filename", "upload.bin")) if ch.isalnum() or ch in "._-")
+        dest = _ws_resolve(fn)
+        _os.makedirs(_o.path.dirname(dest), exist_ok=True)
+        with open(dest, "wb") as fh: fh.write(base64.b64decode(b.get("content", "")))
+        return {"result": "[uploaded] " + fn, "path": dest}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]", "path": ""}
+
 # ۶-۳) سرور را در پس‌زمینه بالا بیاور
 cfg = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="warning")
 srv = uvicorn.Server(cfg)
