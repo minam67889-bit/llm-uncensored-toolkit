@@ -23,7 +23,7 @@
 ## ▶️ راه‌انداز سریع
 
 ### الف) چت روی Colab (رایگان، کاملاً بدون محدودیت)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/USERNAME/llm-uncensored-toolkit/blob/main/colab_setup.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/minam67889-bit/llm-uncensored-toolkit/blob/main/colab_setup.ipynb)
 
 1. روی بَج بالا بزن (یا در Colab: **File > Open notebook > GitHub** و آدرس این ریپو).
 2. **Runtime > Change runtime type > T4 GPU**.
