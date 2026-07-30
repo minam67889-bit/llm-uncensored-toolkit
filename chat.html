@@ -121,7 +121,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
 </div></div>
 <script>
 const LS_SETTINGS='llm_settings',LS_CHATS='llm_chats',LS_ACTIVE='llm_active';
-const TOOLS_DOC='\n\n## TOOLS — call by emitting (one or more):\n<tool_call>\n{"name":"bash","arguments":{"cmd":"ls -la"}}\n</tool_call>\nTools: bash{cmd}, read_file{path}, write_file{path,content}, edit_file{path,old_text,new_text}, list_dir{path}. Paths relative to workspace on server. Results return to you. When done, answer normally WITHOUT a tool_call. Do not wrap tool calls in code fences.';
+const TOOLS_DOC='\n\n## TOOLS — call by emitting (one or more):\n<tool_call>\n{"name":"bash","arguments":{"cmd":"ls -la"}}\n</tool_call>\nTools: bash{cmd}, read_file{path}, write_file{path,content}, edit_file{path,old_text,new_text}, list_dir{path}. Paths relative to workspace on server. Results return to you. When done, answer normally WITHOUT a tool_call. Do not wrap tool calls in code fences. CRITICAL: if a tool returns an error, do NOT repeat the same call — diagnose first (run `ls` to find the EXACT filename, read the error message) then try a different approach. Never retry an identical failed command.';
 const MAX_STEPS=12;
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function renderMd(t){const blocks=[];let x=String(t).replace(/```(\w*)\n?([\s\S]*?)```/g,(m,l,c)=>{blocks.push('<pre class="code"><button class="copy" onclick="copyCode(this)">کپی</button><code>'+esc(c.replace(/\n$/,''))+'</code></pre>');return '\u0000'+(blocks.length-1)+'\u0000';});x=esc(x);x=x.replace(/`([^`\n]+)`/g,'<code class="ic">$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>').replace(/\n/g,'<br>');return x.replace(/\u0000(\d+)\u0000/g,(m,i)=>blocks[+i]);}
@@ -172,6 +172,7 @@ async function send(){
   busy=true;setBtn(true);
   const apiMsgs=[{role:'system',content:(s2.systemPrompt||'')+(agentOn?TOOLS_DOC:'')}];
   c.messages.forEach(m=>{if(!(m.role==='user'&&m.content.indexOf('<tool_result')===0))apiMsgs.push({role:m.role,content:m.content})});
+  const seenCalls={};
   try{
     for(let step=0;step<MAX_STEPS;step++){
       const ae=mkMsg('assistant');const bubble=ae.querySelector('.bubble');
@@ -194,7 +195,7 @@ async function send(){
       c.messages.push({role:'assistant',content:fullText});apiMsgs.push({role:'assistant',content:fullText});scrollBottom();
       const calls=agentOn?parseToolCalls(fullText):[];
       if(!calls.length)break;
-      for(const call of calls){const tEl=renderToolBlock(call.name,call.args,'⏳ در حال اجرا...');bubble.appendChild(tEl);scrollBottom();let res='[متوقف شد]';if(!abortCtrl.aborted)res=await runTool(call.name,call.args);tEl.querySelector('.tb').textContent=res;tEl.querySelector('.th').children[1].textContent=res.slice(0,90);apiMsgs.push({role:'user',content:'<tool_result tool="'+call.name+'">\n'+res+'\n</tool_result>'});c.messages.push({role:'user',content:'<tool_result tool="'+call.name+'">\n'+res+'\n</tool_result>'});if(abortCtrl.aborted)break}
+      for(const call of calls){const key=call.name+':'+JSON.stringify(call.args);seenCalls[key]=(seenCalls[key]||0)+1;const tEl=renderToolBlock(call.name,call.args,'⏳ در حال اجرا...');bubble.appendChild(tEl);scrollBottom();let res='[متوقف شد]';if(!abortCtrl.aborted){if(seenCalls[key]>=2){res='⚠️ تکراری! این دستور رو قبلاً اجرا کردی و همین نتیجه شد. تکرارش ممنوع. اول با `ls` اسم/وضعیت دقیق فایل‌ها رو ببین، بعد با اسم یا روش درست امتحان کن.';if(seenCalls[key]>=3)res+=' (دیگه تکرار نکن — مکث کن و از کاربر بپرس).'}else{res=await runTool(call.name,call.args)}}tEl.querySelector('.tb').textContent=res;tEl.querySelector('.th').children[1].textContent=res.slice(0,90);apiMsgs.push({role:'user',content:'<tool_result tool="'+call.name+'">\n'+res+'\n</tool_result>'});c.messages.push({role:'user',content:'<tool_result tool="'+call.name+'">\n'+res+'\n</tool_result>'});if(abortCtrl.aborted||seenCalls[key]>=3)break}
       if(abortCtrl.aborted)break;
     }
   }finally{saveChats();renderList();busy=false;setBtn(false);abortCtrl=null}
