@@ -129,6 +129,66 @@ async def _chat(req: Request):
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     return llm.create_chat_completion(messages=messages, **params)
 
+# ۶-۲.۵) ابزارهای ایجنت (اجرا روی /content/workspace) — برای حالت ایجنتِ چت
+import os as _os
+AGENT_WS = "/content/workspace"
+_os.makedirs(AGENT_WS, exist_ok=True)
+def _ws_resolve(path):
+    p = _os.path.realpath(_os.path.join(AGENT_WS, path))
+    if not (p == AGENT_WS or p.startswith(AGENT_WS + "/")):
+        raise PermissionError("outside workspace")
+    return p
+@app.post("/v1/tools/bash")
+async def _t_bash(req: Request):
+    cmd = (await req.json()).get("cmd", "")
+    try:
+        r = subprocess.run(cmd, shell=True, cwd=AGENT_WS, capture_output=True, text=True, timeout=600)
+        out = (r.stdout or "") + ((chr(10) + r.stderr) if r.stderr else "")
+        return {"result": out.strip()[:12000] + ((chr(10) + "[exit " + str(r.returncode) + "]") if r.returncode else "")}
+    except subprocess.TimeoutExpired:
+        return {"result": "[timeout 600s]"}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]"}
+@app.post("/v1/tools/read_file")
+async def _t_read(req: Request):
+    try:
+        p = _ws_resolve((await req.json()).get("path", ""))
+        return {"result": open(p, encoding="utf-8", errors="replace").read()[:12000]}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]"}
+@app.post("/v1/tools/write_file")
+async def _t_write(req: Request):
+    try:
+        b = await req.json(); p = _ws_resolve(b.get("path", ""))
+        _os.makedirs(_os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(b.get("content", ""))
+        return {"result": "[written] " + b.get("path", "")}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]"}
+@app.post("/v1/tools/edit_file")
+async def _t_edit(req: Request):
+    try:
+        b = await req.json(); p = _ws_resolve(b.get("path", ""))
+        txt = open(p, encoding="utf-8").read(); old = b.get("old_text", ""); new = b.get("new_text", "")
+        if old not in txt: return {"result": "[error: old_text not found]"}
+        open(p, "w", encoding="utf-8").write(txt.replace(old, new, 1))
+        return {"result": "[edited] " + b.get("path", "")}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]"}
+@app.post("/v1/tools/list_dir")
+async def _t_list(req: Request):
+    try:
+        b = await req.json(); p = _ws_resolve(b.get("path", ".")); rows = []
+        for root, dirs, files in _os.walk(p):
+            dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__")]
+            rel = _os.path.relpath(root, AGENT_WS)
+            for f in files: rows.append(_os.path.join(rel, f) if rel != "." else f)
+            if not b.get("recursive"): dirs[:] = []
+        return {"result": chr(10).join(sorted(rows)[:300]) or "[empty]"}
+    except Exception as e:
+        return {"result": "[error: " + str(e) + "]"}
+@app.get("/v1/workspace")
+async def _ws_info(): return {"workspace": AGENT_WS}
+
 # ۶-۳) سرور را در پس‌زمینه بالا بیاور
 cfg = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="warning")
 srv = uvicorn.Server(cfg)
