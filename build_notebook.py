@@ -34,20 +34,20 @@ cells.append(code("""# ۱) بررسی GPU — باید T4 (یا بهتر) ببی
 
 cells.append(code("""# ۲) تنظیمات — فقط این قسمت را (در صورت نیاز) تغییر بده
 
-# مدل: Qwen3-14B Abliterated (uncensored) با کوانت Q4_K_M (~9GB) -> روی T4 جا می‌شود
-MODEL_REPO = "bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF"
-MODEL_FILE = "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
-MODEL_NAME = "qwen3-14b-abliterated"      # این نام را بعداً در صفحه‌ی چت وارد می‌کنی
+# مدل: Qwen3-32B Abliterated (uncensored) — کیفیتِ ۷۲B؛ روی T4 با offload اجرا میشه (کند ولی باکیفیت)
+MODEL_REPO = "mradermacher/Qwen3-32B-abliterated-GGUF"
+MODEL_FILE = "Qwen3-32B-abliterated.Q4_K_M.gguf"
+MODEL_NAME = "qwen3-32b-abliterated"
 
 CONTEXT_SIZE = 8192
 GPU_LAYERS   = -1     # -1 = همه‌ی لایه‌ها روی GPU
 PORT         = 8000
-EXPECTED_BYTES = 9001749568   # سایز دقیق فایل Q4_K_M — برای تشخیص فایل ناقص
+EXPECTED_BYTES = 19762149728   # سایز دقیق فایل 32B Q4_K_M (~19.8GB)
 
-# --- مدل‌های جایگزین (فقط MODEL_REPO و MODEL_FILE را عوض کن؛ پیشوند فایل مهم است) ---
-# کیفیت بالاتر (سنگین‌تر): bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF | huihui-ai_Qwen3-14B-abliterated-Q5_K_M.gguf
-# مدل دیگر ۱۴B:            bartowski/mlabonne_Qwen3-14B-abliterated-GGUF  | mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
-# برای مدل دلخواه: در huggingface.co عبارت abliterated GGUF را جستجو کن."""))
+# --- اگه 32B خیلی کند بود، مدل سبک‌تر (14B) رو برگردون: ---
+#   MODEL_REPO = "bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF"
+#   MODEL_FILE = "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
+#   EXPECTED_BYTES = 9001749568"""))
 
 cells.append(code("""# ۳) نصب — wheel از پیش‌کامپایل‌شده با CUDA (سریع، ~۱ دقیقه، بدون کامپایل محلی)
 !pip -q install llama-cpp-python==0.3.34 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
@@ -111,8 +111,20 @@ if not _gguf_ok(local_path):
     print("⚠️ فایل مدل ناقص/خراب است — دانلود مجدد به /content ...")
     from huggingface_hub import hf_hub_download as _dl
     _dl(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=_o.path.dirname(local_path), force_download=True)
-print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...")
-llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, chat_format="chatml", verbose=False)
+print("⏳ بارگذاری مدل (offload خودکار بر اساس VRAM)...")
+import subprocess as _sp
+try:
+    _vram = int(_sp.run(["nvidia-smi","--query-gpu=memory.total","--format=csv,noheader,nounits"], capture_output=True, text=True).stdout.strip().split()[0])
+except Exception:
+    _vram = 16000
+if GPU_LAYERS >= 0:
+    _ngl = GPU_LAYERS
+elif _vram >= 22000:
+    _ngl = -1
+else:
+    _ngl = max(10, int((_vram - 4500) / 315))
+print("VRAM ~" + str(_vram) + "MB -> لایه‌های روی GPU: " + str(_ngl) + " (اگه OOM داد GPU_LAYERS رو کم کن)")
+llm = Llama(model_path=local_path, n_gpu_layers=_ngl, n_ctx=CONTEXT_SIZE, chat_format="chatml", verbose=False)
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
