@@ -48,11 +48,10 @@ PORT         = 8000
 # مدل دیگر ۱۴B:            MODEL_REPO = bartowski/mlabonne_Qwen3-14B-abliterated-GGUF | MODEL_FILE = Qwen3-14B-abliterated-Q4_K_M.gguf
 # برای مدل دلخواه: در huggingface.co عبارت abliterated GGUF را جستجو کن."""))
 
-cells.append(code("""# ۳) نصب پیش‌نیازها. بار اول llama-cpp-python با پشتیبانی CUDA کامپایل می‌شود (چند دقیقه).
-%env CMAKE_ARGS=-DGGML_CUDA=on
-%env FORCE_CMAKE=1
-!pip -q install "llama-cpp-python" fastapi uvicorn huggingface_hub --upgrade
-print('✅ نصب انجام شد')"""))
+cells.append(code("""# ۳) نصب — wheel از پیش‌کامپایل‌شده با CUDA (سریع، ~۱ دقیقه، بدون کامپایل محلی)
+!pip -q install llama-cpp-python==0.3.4 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
+!pip -q install fastapi uvicorn huggingface_hub --upgrade
+import llama_cpp; print('✅ نصب شد، نسخه llama-cpp-python:', llama_cpp.__version__)"""))
 
 cells.append(code("""# ۴) مونت Google Drive + دانلود/کش مدل
 from google.colab import drive
