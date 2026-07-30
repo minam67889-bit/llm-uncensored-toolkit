@@ -112,7 +112,7 @@ if not _gguf_ok(local_path):
     from huggingface_hub import hf_hub_download as _dl
     _dl(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=_o.path.dirname(local_path), force_download=True)
 print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...")
-llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, verbose=False)
+llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, chat_format="chatml", verbose=False)
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
