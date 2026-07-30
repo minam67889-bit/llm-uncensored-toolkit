@@ -18,7 +18,7 @@ cells.append(md("""# 🚀 Colab → مدل LLM بدون محدودیت (نسخه
 
 ### چرا «پایدار»؟
 - **تاریخچه‌ی گفتگو در مرورگر تو ذخیره می‌شود** (نه در Colab). پس قطعی/ریست Colab به گفتگوی تو دست نمی‌زند.
-- مدل روی **Google Drive کش می‌شود** → ریست سریع، بدون دانلود مجدد.
+- مدل روی **دیسک محلی Colab (/content)** دانلود می‌شود — بدون نیاز به Drive و بدون مصرف فضای Drive شما.
 - از **cloudflared tunnel** استفاده می‌کنیم (رایگان، بدون نیاز به اکانت، بدون صفحه‌ی مزاحم مثل ngrok).
 
 ### حدود صادقانه (دست گوگل است):
@@ -53,22 +53,17 @@ cells.append(code("""# ۳) نصب — wheel از پیش‌کامپایل‌شد�
 !pip -q install fastapi uvicorn huggingface_hub --upgrade
 import llama_cpp; print('✅ نصب شد، نسخه llama-cpp-python:', llama_cpp.__version__)"""))
 
-cells.append(code("""# ۴) مونت Google Drive + دانلود/کش مدل
-from google.colab import drive
-drive.mount('/content/drive')
-
+cells.append(code("""# ۴) دانلود مدل به /content (دیسک محلی Colab — بدون Drive، بدون محدودیت فضا)
 import os
 from huggingface_hub import hf_hub_download
-
-CACHE_DIR = '/content/drive/MyDrive/llm_models'
-os.makedirs(CACHE_DIR, exist_ok=True)
-local_path = os.path.join(CACHE_DIR, MODEL_FILE)
-
-if os.path.exists(local_path):
-    print('✅ مدل از کش Google Drive لود شد (سریع، بدون دانلود)')
+MODEL_DIR = '/content/models'
+os.makedirs(MODEL_DIR, exist_ok=True)
+local_path = os.path.join(MODEL_DIR, MODEL_FILE)
+if os.path.exists(local_path) and os.path.getsize(local_path) > 8e9:
+    print('✅ مدل از قبل روی /content هست')
 else:
-    print('⏬ اولین دانلود — بسته به سرعت چند دقیقه طول می‌کشد. بعدش برای همیشه کش می‌ماند.')
-    hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=CACHE_DIR)
+    print('⏬ دانلود مدل به /content (چند دقیقه — ارتباط Colab سریع است)')
+    hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=MODEL_DIR)
 print('مسیر مدل:', local_path)"""))
 
 cells.append(code("""# ۵) heartbeat — runtime را بیدار نگه می‌دارد (کمکی برای جلوگیری از idle-disconnect)
@@ -97,20 +92,6 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# کپی مدل از Drive به /content — بارگذاری مستقیم از Drive گاهی fail می‌دهد
-import shutil, os as _o
-MODEL_LOCAL = "/content/model.gguf"
-def _model_ok(p): return _o.path.exists(p) and _o.path.getsize(p) > 8e9
-if not _model_ok(MODEL_LOCAL):
-    if _model_ok(local_path):
-        print("📂 کپی مدل از Drive به /content (برای بارگذاری مطمئن) ...")
-        shutil.copyfile(local_path, MODEL_LOCAL)
-    else:
-        print("⏬ فایل Drive ناقص است — دانلود مستقیم به /content ...")
-        from huggingface_hub import hf_hub_download as _dl
-        _dl(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir="/content")
-        _o.replace("/content/" + MODEL_FILE, MODEL_LOCAL)
-local_path = MODEL_LOCAL
 print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...")
 llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, verbose=False)
 
