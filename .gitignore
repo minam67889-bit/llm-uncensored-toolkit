@@ -6,3 +6,4 @@ venv/
 .device_flow.json
 *.log
 .DS_Store
+.gh_token

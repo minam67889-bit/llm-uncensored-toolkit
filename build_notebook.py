@@ -140,13 +140,18 @@ def _call_llm(messages, stream, **params):
 async def _chat(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
+    msgs = [dict(m) for m in messages]
+    for _m in reversed(msgs):
+        if _m.get("role") == "user" and "<tool_result" not in _m.get("content", ""):
+            _m["content"] = _m.get("content", "").rstrip() + " /no_think"
+            break
     params = dict(max_tokens=int(body.get("max_tokens", 1024)),
                   temperature=float(body.get("temperature", 0.7)),
                   top_p=float(body.get("top_p", 0.95)))
     if body.get("stream"):
         def gen():
             try:
-                for chunk in _call_llm(messages, stream=True, **params):
+                for chunk in _call_llm(msgs, stream=True, **params):
                     yield "data: " + json.dumps(chunk) + chr(10) + chr(10)
             except Exception as e:
                 print("INFERENCE ERROR:", repr(e), flush=True)
@@ -155,7 +160,7 @@ async def _chat(req: Request):
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     try:
-        return _call_llm(messages, stream=False, **params)
+        return _call_llm(msgs, stream=False, **params)
     except Exception as e:
         print("INFERENCE ERROR:", repr(e), flush=True)
         return {"error": {"message": str(e)}}
