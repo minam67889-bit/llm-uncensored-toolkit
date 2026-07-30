@@ -97,6 +97,20 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+# کپی مدل از Drive به /content — بارگذاری مستقیم از Drive گاهی fail می‌دهد
+import shutil, os as _o
+MODEL_LOCAL = "/content/model.gguf"
+def _model_ok(p): return _o.path.exists(p) and _o.path.getsize(p) > 8e9
+if not _model_ok(MODEL_LOCAL):
+    if _model_ok(local_path):
+        print("📂 کپی مدل از Drive به /content (برای بارگذاری مطمئن) ...")
+        shutil.copyfile(local_path, MODEL_LOCAL)
+    else:
+        print("⏬ فایل Drive ناقص است — دانلود مستقیم به /content ...")
+        from huggingface_hub import hf_hub_download as _dl
+        _dl(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir="/content")
+        _o.replace("/content/" + MODEL_FILE, MODEL_LOCAL)
+local_path = MODEL_LOCAL
 print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...")
 llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, verbose=False)
 
