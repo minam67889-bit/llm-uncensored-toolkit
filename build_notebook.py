@@ -59,7 +59,7 @@ from huggingface_hub import hf_hub_download
 MODEL_DIR = '/content/models'
 os.makedirs(MODEL_DIR, exist_ok=True)
 local_path = os.path.join(MODEL_DIR, MODEL_FILE)
-if os.path.exists(local_path) and os.path.getsize(local_path) > 8e9:
+if os.path.exists(local_path) and os.path.getsize(local_path) > 8.9e9:
     print('✅ مدل از قبل روی /content هست')
 else:
     print('⏬ دانلود مدل به /content (چند دقیقه — ارتباط Colab سریع است)')
@@ -92,6 +92,20 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+# بررسی صحت فایل GGUF (magic = b"GGUF") — اگه خراب/ناقص بود، خودکار دوباره دانلود کن
+import os as _o
+def _gguf_ok(p):
+    if not (_o.path.exists(p) and _o.path.getsize(p) > 8.9e9):
+        return False
+    try:
+        with open(p, "rb") as _f:
+            return _f.read(4) == b"GGUF"
+    except Exception:
+        return False
+if not _gguf_ok(local_path):
+    print("⚠️ فایل مدل ناقص/خراب است — دانلود مجدد به /content ...")
+    from huggingface_hub import hf_hub_download as _dl
+    _dl(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=_o.path.dirname(local_path), force_download=True)
 print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...")
 llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, verbose=False)
 
