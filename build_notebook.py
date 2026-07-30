@@ -36,16 +36,16 @@ cells.append(code("""# ۲) تنظیمات — فقط این قسمت را (در 
 
 # مدل: Qwen3-14B Abliterated (uncensored) با کوانت Q4_K_M (~9GB) -> روی T4 جا می‌شود
 MODEL_REPO = "bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF"
-MODEL_FILE = "Qwen3-14B-abliterated-Q4_K_M.gguf"
+MODEL_FILE = "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
 MODEL_NAME = "qwen3-14b-abliterated"      # این نام را بعداً در صفحه‌ی چت وارد می‌کنی
 
 CONTEXT_SIZE = 16384
 GPU_LAYERS   = -1     # -1 = همه‌ی لایه‌ها روی GPU
 PORT         = 8000
 
-# --- مدل‌های جایگزین (فقط MODEL_REPO و MODEL_FILE را عوض کن) ---
-# کیفیت بالاتر (سنگین‌تر): MODEL_REPO = bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF | MODEL_FILE = Qwen3-14B-abliterated-Q5_K_M.gguf
-# مدل دیگر ۱۴B:            MODEL_REPO = bartowski/mlabonne_Qwen3-14B-abliterated-GGUF | MODEL_FILE = Qwen3-14B-abliterated-Q4_K_M.gguf
+# --- مدل‌های جایگزین (فقط MODEL_REPO و MODEL_FILE را عوض کن؛ پیشوند فایل مهم است) ---
+# کیفیت بالاتر (سنگین‌تر): bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF | huihui-ai_Qwen3-14B-abliterated-Q5_K_M.gguf
+# مدل دیگر ۱۴B:            bartowski/mlabonne_Qwen3-14B-abliterated-GGUF  | mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
 # برای مدل دلخواه: در huggingface.co عبارت abliterated GGUF را جستجو کن."""))
 
 cells.append(code("""# ۳) نصب — wheel از پیش‌کامپایل‌شده با CUDA (سریع، ~۱ دقیقه، بدون کامپایل محلی)
