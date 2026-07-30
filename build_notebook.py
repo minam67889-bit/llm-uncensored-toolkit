@@ -42,6 +42,7 @@ MODEL_NAME = "qwen3-14b-abliterated"      # این نام را بعداً در �
 CONTEXT_SIZE = 16384
 GPU_LAYERS   = -1     # -1 = همه‌ی لایه‌ها روی GPU
 PORT         = 8000
+EXPECTED_BYTES = 9001749568   # سایز دقیق فایل Q4_K_M — برای تشخیص فایل ناقص
 
 # --- مدل‌های جایگزین (فقط MODEL_REPO و MODEL_FILE را عوض کن؛ پیشوند فایل مهم است) ---
 # کیفیت بالاتر (سنگین‌تر): bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF | huihui-ai_Qwen3-14B-abliterated-Q5_K_M.gguf
@@ -59,11 +60,13 @@ from huggingface_hub import hf_hub_download
 MODEL_DIR = '/content/models'
 os.makedirs(MODEL_DIR, exist_ok=True)
 local_path = os.path.join(MODEL_DIR, MODEL_FILE)
-if os.path.exists(local_path) and os.path.getsize(local_path) > 8.9e9:
-    print('✅ مدل از قبل روی /content هست')
+if os.path.exists(local_path) and os.path.getsize(local_path) == EXPECTED_BYTES:
+    print('✅ مدل کامل روی /content هست')
 else:
-    print('⏬ دانلود مدل به /content (چند دقیقه — ارتباط Colab سریع است)')
-    hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=MODEL_DIR)
+    print('⏬ (دوباره)دانلود کامل مدل به /content ...')
+    hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=MODEL_DIR, force_download=True)
+    sz = os.path.getsize(local_path)
+    print('سایز:', sz, '| انتظار:', EXPECTED_BYTES, '| تطبیق:', sz == EXPECTED_BYTES)
 print('مسیر مدل:', local_path)"""))
 
 cells.append(code("""# ۵) heartbeat — runtime را بیدار نگه می‌دارد (کمکی برای جلوگیری از idle-disconnect)
@@ -81,21 +84,23 @@ server_src = '''# ۶) راه‌اندازی رابط چت + موتور مدل + 
 # ۶-۱) رابط چت را روی دیسک بنویس
 import base64
 CHAT_HTML_B64 = "''' + b64 + '''"
-open("/content/chat.html", "wb").write(base64.b64decode(CHAT_HTML_B64))
-print("✅ رابط چت نوشته شد")
+_html = base64.b64decode(CHAT_HTML_B64)
+open("/content/chat.html", "wb").write(_html)
+assert len(_html) > 5000, "chat.html decode/write failed"
+print("✅ رابط چت نوشته شد", len(_html), "بایت")
 
 # ۶-۲) بارگذاری مدل و ساخت سرور FastAPI
 import threading, time, json, subprocess, re, urllib.request
 from llama_cpp import Llama
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # بررسی صحت فایل GGUF (magic = b"GGUF") — اگه خراب/ناقص بود، خودکار دوباره دانلود کن
 import os as _o
 def _gguf_ok(p):
-    if not (_o.path.exists(p) and _o.path.getsize(p) > 8.9e9):
+    if not (_o.path.exists(p) and _o.path.getsize(p) == EXPECTED_BYTES):
         return False
     try:
         with open(p, "rb") as _f:
@@ -113,7 +118,11 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 @app.get("/")
-def _index(): return FileResponse("/content/chat.html")
+async def _index():
+    _p = "/content/chat.html"
+    if _o.path.exists(_p):
+        return FileResponse(_p, media_type="text/html", headers={"Cache-Control": "no-store"})
+    return HTMLResponse("<html><body dir='rtl'><h3>⚠️ chat.html پیدا نشد — سلول ۶ را دوباره اجرا کن.</h3></body></html>", media_type="text/html")
 
 @app.get("/health")
 def _health(): return {"status": "ok"}
