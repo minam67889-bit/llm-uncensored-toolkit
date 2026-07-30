@@ -39,7 +39,7 @@ MODEL_REPO = "bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF"
 MODEL_FILE = "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
 MODEL_NAME = "qwen3-14b-abliterated"      # این نام را بعداً در صفحه‌ی چت وارد می‌کنی
 
-CONTEXT_SIZE = 16384
+CONTEXT_SIZE = 8192
 GPU_LAYERS   = -1     # -1 = همه‌ی لایه‌ها روی GPU
 PORT         = 8000
 EXPECTED_BYTES = 9001749568   # سایز دقیق فایل Q4_K_M — برای تشخیص فایل ناقص
@@ -130,22 +130,35 @@ def _health(): return {"status": "ok"}
 @app.get("/v1/models")
 def _models(): return {"object": "list", "data": [{"id": MODEL_NAME, "object": "model"}]}
 
+def _call_llm(messages, stream, **params):
+    try:
+        return llm.create_chat_completion(messages=messages, stream=stream, chat_template_kwargs={"enable_thinking": False}, **params)
+    except TypeError:
+        return llm.create_chat_completion(messages=messages, stream=stream, **params)
+
 @app.post("/v1/chat/completions")
 async def _chat(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
     params = dict(max_tokens=int(body.get("max_tokens", 1024)),
                   temperature=float(body.get("temperature", 0.7)),
-                  top_p=float(body.get("top_p", 0.95)),
-                  chat_template_kwargs={"enable_thinking": False})
+                  top_p=float(body.get("top_p", 0.95)))
     if body.get("stream"):
         def gen():
-            for chunk in llm.create_chat_completion(messages=messages, stream=True, **params):
-                yield "data: " + json.dumps(chunk) + "\\n\\n"
-            yield "data: [DONE]\\n\\n"
+            try:
+                for chunk in _call_llm(messages, stream=True, **params):
+                    yield "data: " + json.dumps(chunk) + chr(10) + chr(10)
+            except Exception as e:
+                print("INFERENCE ERROR:", repr(e), flush=True)
+                yield "data: " + json.dumps({"choices":[{"index":0,"delta":{"content":"[ERR " + str(e)[:300] + "]"}}]}) + chr(10) + chr(10)
+            yield "data: [DONE]" + chr(10) + chr(10)
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-    return llm.create_chat_completion(messages=messages, **params)
+    try:
+        return _call_llm(messages, stream=False, **params)
+    except Exception as e:
+        print("INFERENCE ERROR:", repr(e), flush=True)
+        return {"error": {"message": str(e)}}
 
 # ۶-۲.۵) ابزارهای ایجنت (اجرا روی /content/workspace) — برای حالت ایجنتِ چت
 import os as _os
