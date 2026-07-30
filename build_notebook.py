@@ -39,7 +39,7 @@ MODEL_REPO = "bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF"
 MODEL_FILE = "Qwen3-14B-abliterated-Q4_K_M.gguf"
 MODEL_NAME = "qwen3-14b-abliterated"      # این نام را بعداً در صفحه‌ی چت وارد می‌کنی
 
-CONTEXT_SIZE = 8192
+CONTEXT_SIZE = 16384
 GPU_LAYERS   = -1     # -1 = همه‌ی لایه‌ها روی GPU
 PORT         = 8000
 
