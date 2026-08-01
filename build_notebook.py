@@ -36,8 +36,8 @@ EXPECTED_BYTES = 19762149728   # ~19.8GB
 cells.append(code("""# ۳) ساخت llama.cpp (موتور رسمی) — یک‌بار ~۳-۵ دقیقه
 !apt-get -y -qq install cmake >/dev/null 2>&1
 ![ -d /content/llama.cpp ] || git clone --depth 1 https://github.com/ggml-org/llama.cpp /content/llama.cpp
-print("⏳ ساخت llama.cpp با CUDA...")
-!cmake -S /content/llama.cpp -B /content/llama.cpp/build -DGGML_CUDA=ON > /tmp/cm.log 2>&1 && echo "cmake ok"
+print("⏳ ساخت llama.cpp (فقط برای sm_75/89 = T4/L4، پس سریع‌تر)...")
+!cmake -S /content/llama.cpp -B /content/llama.cpp/build -DGGML_CUDA=ON -DGGML_CUDA_ARCHITECTURES="75;89" -DLLAMA_CURL=OFF > /tmp/cm.log 2>&1 && echo "cmake ok"
 !cmake --build /content/llama.cpp/build --config Release --target llama-server -j > /tmp/bd.log 2>&1 && echo "✅ llama-server ساخته شد"
 !ls -la /content/llama.cpp/build/bin/llama-server 2>/dev/null || (echo "❌ build ناموفق — /tmp/bd.log:"; tail -20 /tmp/bd.log)"""))
 
