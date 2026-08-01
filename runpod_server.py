@@ -10,9 +10,9 @@ RunPod exposes port 8000 automatically at:  https://<POD_ID>-8000.proxy.runpod.n
 import os, sys, json, base64, subprocess
 
 # ===== CONFIG =====
-MODEL_REPO  = "mradermacher/Qwen3-32B-abliterated-GGUF"
-MODEL_FILE  = "Qwen3-32B-abliterated.Q4_K_M.gguf"
-MODEL_NAME  = "qwen3-32b-abliterated"
+MODEL_REPO  = "mradermacher/Llama-3.3-70B-Instruct-abliterated-GGUF"
+MODEL_FILE  = "Llama-3.3-70B-Instruct-abliterated.Q4_K_M.gguf"
+MODEL_NAME  = "llama3.3-70b-abliterated"
 CONTEXT_SIZE = 16384
 GPU_LAYERS  = -1
 PORT        = 8000
@@ -40,7 +40,7 @@ from huggingface_hub import hf_hub_download
 MODEL_DIR = os.path.join(WORKSPACE, "models")
 os.makedirs(MODEL_DIR, exist_ok=True)
 local_path = os.path.join(MODEL_DIR, MODEL_FILE)
-if not (os.path.exists(local_path) and os.path.getsize(local_path) > 18e9):
+if not (os.path.exists(local_path) and os.path.getsize(local_path) > 35e9):
     print("⏬ دانلود مدل (~20GB، بار اول)...", flush=True)
     hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE, local_dir=MODEL_DIR)
 print("مدل:", local_path, flush=True)
@@ -58,7 +58,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 print("⏳ بارگذاری مدل روی GPU (چند دقیقه)...", flush=True)
-llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, chat_format="chatml", verbose=False)
+llm = Llama(model_path=local_path, n_gpu_layers=GPU_LAYERS, n_ctx=CONTEXT_SIZE, chat_format="llama-3", verbose=False)
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -74,19 +74,12 @@ def _health(): return {"status": "ok"}
 def _models(): return {"object": "list", "data": [{"id": MODEL_NAME, "object": "model"}]}
 
 def _call(messages, stream, **p):
-    try:
-        return llm.create_chat_completion(messages=messages, stream=stream, chat_template_kwargs={"enable_thinking": False}, **p)
-    except TypeError:
-        return llm.create_chat_completion(messages=messages, stream=stream, **p)
+    return llm.create_chat_completion(messages=messages, stream=stream, **p)
 
 @app.post("/v1/chat/completions")
 async def _chat(req: Request):
     body = await req.json()
-    msgs = [dict(m) for m in body.get("messages", [])]
-    for m in reversed(msgs):
-        if m.get("role") == "user" and "<tool_result" not in m.get("content", ""):
-            m["content"] = m.get("content", "").rstrip() + " /no_think"
-            break
+    msgs = body.get("messages", [])
     p = dict(max_tokens=int(body.get("max_tokens", 2048)), temperature=float(body.get("temperature", 0.3)), top_p=0.95)
     if body.get("stream"):
         def gen():
