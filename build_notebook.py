@@ -21,6 +21,7 @@ cells.append(code(
 ))
 
 cells.append(code(
+"!apt-get -y -qq install zstd >/dev/null 2>&1\n"
 "!curl -fsSL https://ollama.com/install.sh | sh\n"
 "!pip -q install fastapi uvicorn httpx\n"
 "print('Ollama installed')\n"
